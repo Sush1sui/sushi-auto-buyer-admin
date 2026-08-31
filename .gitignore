@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+package-lock.json
+PROJECT-CONCEPT.md
+sushi-ext.code-workspace
