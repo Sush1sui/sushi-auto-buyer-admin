@@ -43,3 +43,16 @@ next-env.d.ts
 package-lock.json
 PROJECT-CONCEPT.md
 sushi-ext.code-workspace
+
+graphify-out
+.opencode
+AGENTS.md
+CLAUDE.md
+GRAPHIFY.md
+.impeccable/design.json
+.impeccable/surfaces/admin.md
+AGENTS.md
+AGENTS.md
+CLAUDE.md
+DESIGN.md
+PRODUCT.md
