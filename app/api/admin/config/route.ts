@@ -1,31 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { getSetting, setSetting } from '@/models/Setting';
-import { verifyToken } from '@/lib/jwt';
-
-function verifyAdmin(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  let token = '';
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7);
-  }
-  if (!token) {
-    token = req.cookies.get('sushi_admin_token')?.value || '';
-  }
-
-  if (!token) return null;
-  const payload = verifyToken(token);
-  if (!payload) return null;
-
-  const adminDiscordId = process.env.ADMIN_DISCORD_ID;
-  if (payload.isAdmin || (adminDiscordId && payload.discordId === adminDiscordId)) {
-    return payload;
-  }
-  return null;
-}
+import { verifyAdmin } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
-  const admin = verifyAdmin(req);
+  const admin = await verifyAdmin(req);
   if (!admin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -43,7 +22,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = verifyAdmin(req);
+  const admin = await verifyAdmin(req);
   if (!admin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

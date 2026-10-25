@@ -8,22 +8,34 @@ import { signToken } from '@/lib/jwt';
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get('code');
-  const state = searchParams.get('state') || 'extension';
+  const state = searchParams.get('state');
   const error = searchParams.get('error');
+  const redirect = (target: string | URL) => {
+    const response = NextResponse.redirect(new URL(target, req.url));
+    response.cookies.set('sushi_oauth_state', '', { path: '/api/auth', maxAge: 0 });
+    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Referrer-Policy', 'no-referrer');
+    return response;
+  };
+
+  if (!state || state !== req.cookies.get('sushi_oauth_state')?.value ||
+      !/^(admin|extension):[a-f0-9]{64}$/.test(state)) {
+    return redirect('/auth/error?error=invalid_state');
+  }
 
   if (error || !code) {
-    return NextResponse.redirect(new URL(`/auth/error?error=${encodeURIComponent(error || 'missing_code')}`, req.url));
+    return redirect(`/auth/error?error=${encodeURIComponent(error || 'missing_code')}`);
   }
 
   try {
     const tokenData = await exchangeCodeForToken(code);
     if (!tokenData || !tokenData.access_token) {
-      return NextResponse.redirect(new URL('/auth/error?error=token_exchange_failed', req.url));
+      return redirect('/auth/error?error=token_exchange_failed');
     }
 
     const discordUser = await fetchDiscordUser(tokenData.access_token);
     if (!discordUser || !discordUser.id) {
-      return NextResponse.redirect(new URL('/auth/error?error=failed_fetching_user', req.url));
+      return redirect('/auth/error?error=failed_fetching_user');
     }
 
     await connectToDatabase();
@@ -113,10 +125,10 @@ export async function GET(req: NextRequest) {
       isAdmin,
     });
 
-    if (state === 'admin') {
+    if (state.startsWith('admin:')) {
       if (isAdmin) {
         // Redirect to admin dashboard with token
-        const response = NextResponse.redirect(new URL('/admin', req.url));
+        const response = redirect('/admin');
         response.cookies.set('sushi_admin_token', jwtToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
@@ -127,9 +139,7 @@ export async function GET(req: NextRequest) {
         return response;
       } else {
         // Non-admin trying to log into admin dashboard -> Block completely
-        return NextResponse.redirect(
-          new URL('/auth/error?error=access_denied_not_an_admin', req.url)
-        );
+        return redirect('/auth/error?error=access_denied_not_an_admin');
       }
     }
 
@@ -139,16 +149,18 @@ export async function GET(req: NextRequest) {
       : '';
 
     const successUrl = new URL('/auth/success', req.url);
-    successUrl.searchParams.set('token', jwtToken);
-    successUrl.searchParams.set('discordId', user.discordId);
-    successUrl.searchParams.set('username', user.discordUsername);
+    const sessionParams = new URLSearchParams();
+    sessionParams.set('token', jwtToken);
+    sessionParams.set('discordId', user.discordId);
+    sessionParams.set('username', user.discordUsername);
     if (avatarUrl) {
-      successUrl.searchParams.set('avatar', avatarUrl);
+      sessionParams.set('avatar', avatarUrl);
     }
 
-    return NextResponse.redirect(successUrl);
+    successUrl.hash = sessionParams.toString();
+    return redirect(successUrl);
   } catch (err) {
     console.error('[OAuth Callback Error]:', err);
-    return NextResponse.redirect(new URL('/auth/error?error=internal_server_error', req.url));
+    return redirect('/auth/error?error=internal_server_error');
   }
 }

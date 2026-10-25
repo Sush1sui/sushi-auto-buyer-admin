@@ -56,3 +56,4 @@ AGENTS.md
 CLAUDE.md
 DESIGN.md
 PRODUCT.md
+tests/auth.test.mjs

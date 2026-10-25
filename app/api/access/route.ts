@@ -9,6 +9,7 @@ function getCorsHeaders() {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Cache-Control': 'no-store',
   };
 }
 
@@ -35,11 +36,6 @@ export async function GET(req: NextRequest) {
   }
 
   if (!token) {
-    const { searchParams } = new URL(req.url);
-    token = searchParams.get('token') || '';
-  }
-
-  if (!token) {
     return NextResponse.json(
       { allowed: false, reason: 'unauthorized', message: 'Authentication required', discordInviteUrl: dynamicInviteUrl },
       { status: 401, headers }
@@ -56,21 +52,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const adminDiscordId = process.env.ADMIN_DISCORD_ID;
-    const isAdmin = Boolean(adminDiscordId && payload.discordId === adminDiscordId) || Boolean(payload.isAdmin);
-
-    // Admin/Owner always has full permanent access to the extension
-    if (isAdmin) {
-      return NextResponse.json(
-        {
-          allowed: true,
-          reason: 'active',
-          passType: 'lifetime',
-          expiresAt: null,
-          discordInviteUrl: dynamicInviteUrl,
-        },
-        { status: 200, headers }
-      );
-    }
+    const isAdmin = Boolean(adminDiscordId && payload.discordId === adminDiscordId);
 
     const user = await User.findOne({ discordId: payload.discordId });
 
@@ -82,7 +64,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Single device session enforcement: Check session nonce
-    if (payload.sessionNonce && user.sessionNonce && payload.sessionNonce !== user.sessionNonce) {
+    if (!user.sessionNonce || payload.sessionNonce !== user.sessionNonce) {
       return NextResponse.json(
         {
           allowed: false,
@@ -91,6 +73,14 @@ export async function GET(req: NextRequest) {
           discordInviteUrl: dynamicInviteUrl,
         },
         { status: 200, headers }
+      );
+    }
+
+    // Owner entitlement does not bypass session revocation.
+    if (isAdmin) {
+      return NextResponse.json(
+        { allowed: true, reason: 'active', passType: 'lifetime', expiresAt: null, discordInviteUrl: dynamicInviteUrl },
+        { status: 200, headers },
       );
     }
 
@@ -128,7 +118,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    if (user.accessStatus === 'pending') {
+    if (user.accessStatus !== 'active') {
       return NextResponse.json(
         {
           allowed: false,

@@ -1,29 +1,8 @@
 "use client";
 
-import { useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
 function AuthSuccessContent() {
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token");
-  const discordId = searchParams.get("discordId");
-  const username = searchParams.get("username");
-  const avatar = searchParams.get("avatar");
-
-  useEffect(() => {
-    // Notify window.opener if opened via popup window
-    if (window.opener && token) {
-      window.opener.postMessage(
-        {
-          type: "SUSHI_AUTH_SUCCESS",
-          payload: { token, discordId, username, avatar },
-        },
-        "*",
-      );
-    }
-  }, [token, discordId, username, avatar]);
-
   return (
     <main className="auth-page">
       <section className="auth-sheet">
@@ -33,12 +12,11 @@ function AuthSuccessContent() {
         </div>
         <h1>You are signed in</h1>
         <p>
-          Welcome, <strong>{username || "Discord User"}</strong>. Your session
-          is now connected with Sushi Auto-Buyer.
+          Finishing your connection with Sushi Auto-Buyer.
         </p>
         <div className="auth-instruction">
-          Return to the extension to check your pass and set up your auto-buyer.
-          You can close this tab.
+          This tab closes automatically once the extension saves your session.
+          If it stays open, return to the extension and try signing in again.
         </div>
         <button className="primary" onClick={() => window.close()}>
           Close this window <ArrowRight size={16} />
@@ -49,15 +27,5 @@ function AuthSuccessContent() {
 }
 
 export default function AuthSuccessPage() {
-  return (
-    <Suspense
-      fallback={
-        <main className="auth-page" role="status">
-          Connecting your account...
-        </main>
-      }
-    >
-      <AuthSuccessContent />
-    </Suspense>
-  );
+  return <AuthSuccessContent />;
 }

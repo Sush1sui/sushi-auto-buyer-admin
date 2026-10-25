@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { verifyToken } from '@/lib/jwt';
+import { verifyAdminToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,14 +16,7 @@ export default async function AdminLayout({
     redirect('/api/auth/discord?source=admin');
   }
 
-  const payload = verifyToken(token);
-  const adminDiscordId = process.env.ADMIN_DISCORD_ID;
-
-  if (
-    !payload ||
-    !payload.discordId ||
-    (adminDiscordId && payload.discordId !== adminDiscordId && !payload.isAdmin)
-  ) {
+  if (!(await verifyAdminToken(token))) {
     redirect('/api/auth/discord?source=admin');
   }
 
